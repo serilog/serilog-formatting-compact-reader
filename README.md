@@ -53,7 +53,11 @@ using (var console = new LoggerConfiguration()
 }
 ```
 
-### Limitiations
+Output from the logger:
+
+![Screenshot](https://raw.githubusercontent.com/nblumhardt/serilog-formatting-compact-reader/dev/asset/Screenshot.png)
+
+### Limitations
 
 Events deserialized from JSON are for typical purposes just like the original log events. There are two main things to keep in mind:
 

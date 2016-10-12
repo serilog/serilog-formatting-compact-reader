@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E673DF37-5F53-48F6-9991-D762B8E35548}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "global", "global", "{70BA4A7D-8A1E-4EAC-AA28-8FD2BD1556BD}"
+	ProjectSection(SolutionItems) = preProject
+		global.json = global.json
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asset", "asset", "{71DD3779-3435-42D0-BA02-AEA04EE5B1E5}"
+	ProjectSection(SolutionItems) = preProject
+		asset\Serilog.snk = asset\Serilog.snk
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "example", "example", "{C3520C42-AC85-401C-B496-F51C816B784F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{C76B8054-0892-42DA-83D5-88D731782FE8}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Serilog.Formatting.Compact.Reader", "src\Serilog.Formatting.Compact.Reader\Serilog.Formatting.Compact.Reader.xproj", "{D6A02FA9-860A-48AC-8288-8CEBC962D4DE}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "RoundTrip", "example\RoundTrip\RoundTrip.xproj", "{961D5124-BBB2-4022-945E-1190BF6BE0C9}"
+EndProject
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "Serilog.Formatting.Compact.Reader.Tests", "test\Serilog.Formatting.Compact.Reader.Tests\Serilog.Formatting.Compact.Reader.Tests.xproj", "{3C2D8E01-5580-426A-BDD9-EC59CD98E618}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D6A02FA9-860A-48AC-8288-8CEBC962D4DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6A02FA9-860A-48AC-8288-8CEBC962D4DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6A02FA9-860A-48AC-8288-8CEBC962D4DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6A02FA9-860A-48AC-8288-8CEBC962D4DE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{961D5124-BBB2-4022-945E-1190BF6BE0C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{961D5124-BBB2-4022-945E-1190BF6BE0C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{961D5124-BBB2-4022-945E-1190BF6BE0C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{961D5124-BBB2-4022-945E-1190BF6BE0C9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3C2D8E01-5580-426A-BDD9-EC59CD98E618}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3C2D8E01-5580-426A-BDD9-EC59CD98E618}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3C2D8E01-5580-426A-BDD9-EC59CD98E618}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3C2D8E01-5580-426A-BDD9-EC59CD98E618}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{D6A02FA9-860A-48AC-8288-8CEBC962D4DE} = {E673DF37-5F53-48F6-9991-D762B8E35548}
+		{961D5124-BBB2-4022-945E-1190BF6BE0C9} = {C3520C42-AC85-401C-B496-F51C816B784F}
+		{3C2D8E01-5580-426A-BDD9-EC59CD98E618} = {C76B8054-0892-42DA-83D5-88D731782FE8}
+	EndGlobalSection
+EndGlobal

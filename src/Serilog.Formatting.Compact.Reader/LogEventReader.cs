@@ -86,7 +86,17 @@ namespace Serilog.Formatting.Compact.Reader
                 throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
 
             var timestamp = DateTimeOffset.Parse(GetRequiredField(_lineNumber, fields, ClefFields.Timestamp));
-            var messageTemplate = GetRequiredField(_lineNumber, fields, ClefFields.MessageTemplate);
+
+            string messageTemplate;
+            if (!TryGetOptionalField(_lineNumber, fields, ClefFields.MessageTemplate, out messageTemplate))
+            {
+                string message;
+                if (!TryGetOptionalField(_lineNumber, fields, ClefFields.Message, out message))
+                    throw new InvalidDataException($"The data on line {_lineNumber} does not include the required `{ClefFields.MessageTemplate}` or `{ClefFields.Message}` field.");
+
+                messageTemplate = MessageTemplateEscape(message);
+            }
+
             var level = LogEventLevel.Information;
             string l;
             if (TryGetOptionalField(_lineNumber, fields, ClefFields.Level, out l))
@@ -129,10 +139,21 @@ namespace Serilog.Formatting.Compact.Reader
                     var renderingsByFormat = renderings.Where(rd => rd.Name == name);
                     return PropertyFactory.CreateProperty(name, f.Value, renderingsByFormat);
                 })
-                .ToArray();
+                .ToList();
+
+            string eventId;
+            if (TryGetOptionalField(_lineNumber, fields, ClefFields.EventId, out eventId))
+            {
+                properties.Add(new LogEventProperty("$eventId", new ScalarValue(eventId)));
+            }
 
             evt = new LogEvent(timestamp, level, exception, parsedTemplate, properties);
             return true;
+        }
+
+        static string MessageTemplateEscape(string message)
+        {
+            return message.Replace("{", "{{").Replace("}", "}}");
         }
 
         static string GetRequiredField(int lineNumber, JObject data, string field)
@@ -153,7 +174,7 @@ namespace Serilog.Formatting.Compact.Reader
                 return false;
             }
 
-            if (token.Type != JTokenType.String)
+            if (token.Type != JTokenType.String) // This also excludes nulls
                 throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
             value = token.Value<string>();

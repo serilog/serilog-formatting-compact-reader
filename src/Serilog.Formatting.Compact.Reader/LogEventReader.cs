@@ -144,7 +144,7 @@ namespace Serilog.Formatting.Compact.Reader
             string eventId;
             if (TryGetOptionalField(_lineNumber, fields, ClefFields.EventId, out eventId))
             {
-                properties.Add(new LogEventProperty("$eventId", new ScalarValue(eventId)));
+                properties.Add(new LogEventProperty("@i", new ScalarValue(eventId)));
             }
 
             evt = new LogEvent(timestamp, level, exception, parsedTemplate, properties);

@@ -1,5 +1,5 @@
 ﻿using Serilog.Events;
-using Serilog.Formatting.Compact.Reader;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Xunit;
@@ -22,6 +22,32 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             }
 
             Assert.Equal(5, all.Count);
+        }
+
+        [Fact]
+        public void BasicFieldsAreRead()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@mt\":\"Hello, {@User}\",\"User\":{\"Name\":\"nblumhardt\",\"Id\":101}}";
+            var evt = LogEventReader.ReadFromString(document);
+
+            Assert.Equal(DateTimeOffset.Parse("2016-10-12T04:20:58.0554314Z"), evt.Timestamp);
+            Assert.Equal(LogEventLevel.Information, evt.Level);
+            Assert.Equal("Hello, {@User}", evt.MessageTemplate.Text);
+
+            var user = (StructureValue)evt.Properties["User"];
+            Assert.Equal("Name", user.Properties[0].Name);
+            Assert.Equal(new ScalarValue("nblumhardt"), (ScalarValue)user.Properties[0].Value);
+            Assert.Equal("Id", user.Properties[1].Name);
+            Assert.Equal(101L, ((ScalarValue)user.Properties[1].Value).Value);
+        }
+
+        [Fact]
+        public void MessagesAreEscapedIntoTemplates()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@m\":\"Hello, {text}\"}";
+            var evt = LogEventReader.ReadFromString(document);
+
+            Assert.Equal("Hello, {{text}}", evt.MessageTemplate.Text);
         }
     }
 }

@@ -1,4 +1,4 @@
-# Serilog.Formatting.Compact.Reader [![Build status](https://ci.appveyor.com/api/projects/status/ujbxvlokc05d28nx?svg=true)](https://ci.appveyor.com/project/serilog/serilog-formatting-compact-reader) [![NuGet Pre Release](https://img.shields.io/nuget/vpre/Serilog.Formatting.Compact.svg)](https://www.nuget.org/packages/serilog.formatting.compact.reader)
+# Serilog.Formatting.Compact.Reader [![Build status](https://ci.appveyor.com/api/projects/status/ujbxvlokc05d28nx?svg=true)](https://ci.appveyor.com/project/serilog/serilog-formatting-compact-reader) [![NuGet Pre Release](https://img.shields.io/nuget/vpre/Serilog.Formatting.Compact.Reader.svg)](https://www.nuget.org/packages/serilog.formatting.compact.reader)
 
 Reads (deserializes) log files in JSON format created by [Serilog.Formatting.Compact](https://github.com/serilog/serilog-formatting-compact).
 

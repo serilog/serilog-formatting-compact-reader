@@ -21,7 +21,7 @@ namespace Serilog.Formatting.Compact.Reader.Tests
                     all.Add(evt);
             }
 
-            Assert.Equal(4, all.Count);
+            Assert.Equal(5, all.Count);
         }
     }
 }

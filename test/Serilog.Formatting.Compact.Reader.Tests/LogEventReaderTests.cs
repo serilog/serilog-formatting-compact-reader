@@ -1,4 +1,6 @@
-﻿using Serilog.Events;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -48,6 +50,16 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             var evt = LogEventReader.ReadFromString(document);
 
             Assert.Equal("Hello, {{text}}", evt.MessageTemplate.Text);
+        }
+
+        [Fact]
+        public void HandlesDefaultJsonNetSerialization()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@m\":\"Hello\"}";
+            var jObject = JsonConvert.DeserializeObject<JObject>(document);
+            var evt = LogEventReader.ReadFromJObject(jObject);
+
+            Assert.Equal(DateTimeOffset.Parse("2016-10-12T04:20:58.0554314Z"), evt.Timestamp);
         }
     }
 }

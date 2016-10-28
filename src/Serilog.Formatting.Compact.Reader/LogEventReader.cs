@@ -113,7 +113,7 @@ namespace Serilog.Formatting.Compact.Reader
 
         static LogEvent ReadFromJObject(int lineNumber, JObject jObject)
         {
-            var timestamp = DateTimeOffset.Parse(GetRequiredField(lineNumber, jObject, ClefFields.Timestamp));
+            var timestamp = GetRequiredTimestampField(lineNumber, jObject, ClefFields.Timestamp);
 
             string messageTemplate;
             if (!TryGetOptionalField(lineNumber, jObject, ClefFields.MessageTemplate, out messageTemplate))
@@ -170,7 +170,7 @@ namespace Serilog.Formatting.Compact.Reader
                 .ToList();
 
             string eventId;
-            if (TryGetOptionalField(lineNumber, jObject, ClefFields.EventId, out eventId))
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.EventId, out eventId)) // TODO; should support numeric ids.
             {
                 properties.Add(new LogEventProperty("@i", new ScalarValue(eventId)));
             }
@@ -196,11 +196,33 @@ namespace Serilog.Formatting.Compact.Reader
                 return false;
             }
 
-            if (token.Type != JTokenType.String) // This also excludes nulls
+            if (token.Type != JTokenType.String)
                 throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
             value = token.Value<string>();
             return true;
+        }
+
+        static DateTimeOffset GetRequiredTimestampField(int lineNumber, JObject data, string field)
+        {
+            JToken token;
+            if (!data.TryGetValue(field, out token) || token.Type == JTokenType.Null)
+                throw new InvalidDataException($"The data on line {lineNumber} does not include the required `{field}` field.");
+
+            if (token.Type == JTokenType.Date)
+            {
+                var dt = token.Value<JValue>().Value;
+                if (dt is DateTimeOffset)
+                    return (DateTimeOffset)dt;
+                else
+                    return (DateTime)dt;
+            }
+
+            if (token.Type != JTokenType.String)
+                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
+
+            var text = token.Value<string>();
+            return DateTimeOffset.Parse(text);
         }
 
         static JsonSerializer CreateSerializer()

@@ -1,0 +1,5 @@
+﻿{"@t":"2016-10-12T04:20:58.0554314Z","@mt":"Hello, {@User}","User":{"Name":"nblumhardt","Id":101}}
+{"@t":"2016-10-12T04:20:58.0684369Z","@mt":"Number {N:x8}","@r":["0000002a"],"N":42}
+{"@t":"2016-10-12T04:20:58.0724384Z","@mt":"Tags are {Tags}","@l":"Warning","Tags":["test","orange"]}
+{"@t":"2016-10-12T04:20:58.0904378Z","@mt":"Something failed","@l":"Error","@x":"System.DivideByZeroException: Attempted to divide by zero.\r\n   at Example.Program.Main(String[] args) in C:\\Development\\nblumhardt\\serilog-formatting-compact-reader\\example\\RoundTrip\\Program.cs:line 24"}
+{"@t":"2016-10-12T04:20:59.0554314Z","@m":"Hello, nblumhardt","@i":"123abc00","N":42}

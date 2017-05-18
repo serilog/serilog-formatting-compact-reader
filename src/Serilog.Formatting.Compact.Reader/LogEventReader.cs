@@ -29,11 +29,11 @@ namespace Serilog.Formatting.Compact.Reader
     /// </summary>
     public class LogEventReader : IDisposable
     {
-        static readonly MessageTemplateParser _parser = new MessageTemplateParser();
+        static readonly MessageTemplateParser Parser = new MessageTemplateParser();
         readonly TextReader _text;
         readonly JsonSerializer _serializer;
 
-        int _lineNumber = 0;
+        int _lineNumber;
 
         /// <summary>
         /// Construct a <see cref="LogEventReader"/>.
@@ -42,9 +42,7 @@ namespace Serilog.Formatting.Compact.Reader
         /// <param name="serializer">If specified, a JSON serializer used when converting event documents.</param>
         public LogEventReader(TextReader text, JsonSerializer serializer = null)
         {
-            if (text == null) throw new ArgumentNullException(nameof(text));
-
-            _text = text;
+            _text = text ?? throw new ArgumentNullException(nameof(text));
             _serializer = serializer ?? CreateSerializer();
         }
 
@@ -126,26 +124,25 @@ namespace Serilog.Formatting.Compact.Reader
             }
 
             var level = LogEventLevel.Information;
-            string l;
-            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out l))
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out string l))
                 level = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), l);
             Exception exception = null;
-            string ex;
-            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out ex))
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out string ex))
                 exception = new TextException(ex);
 
             var unrecognized = jObject.Properties().Where(p => ClefFields.IsUnrecognized(p.Name));
+            // ReSharper disable once PossibleMultipleEnumeration
             if (unrecognized.Any())
             {
+                // ReSharper disable once PossibleMultipleEnumeration
                 var names = string.Join(", ", unrecognized.Select(p => $"`{p.Name}`"));
                 throw new InvalidDataException($"{names} on line {lineNumber} are unrecognized.");
             }
 
-            var parsedTemplate = _parser.Parse(messageTemplate);
+            var parsedTemplate = Parser.Parse(messageTemplate);
             var renderings = Enumerable.Empty<Rendering>();
 
-            JToken r;
-            if (jObject.TryGetValue(ClefFields.Renderings, out r))
+            if (jObject.TryGetValue(ClefFields.Renderings, out JToken r))
             {
                 var renderedByIndex = r as JArray;
                 if (renderedByIndex == null)
@@ -178,15 +175,6 @@ namespace Serilog.Formatting.Compact.Reader
             return new LogEvent(timestamp, level, exception, parsedTemplate, properties);
         }
 
-        static string GetRequiredField(int lineNumber, JObject data, string field)
-        {
-            string value;
-            if (!TryGetOptionalField(lineNumber, data, field, out value))
-                throw new InvalidDataException($"The data on line {lineNumber} does not include the required `{field}` field.");
-
-            return value;
-        }
-
         static bool TryGetOptionalField(int lineNumber, JObject data, string field, out string value)
         {
             JToken token;
@@ -214,8 +202,8 @@ namespace Serilog.Formatting.Compact.Reader
                 var dt = token.Value<JValue>().Value;
                 if (dt is DateTimeOffset)
                     return (DateTimeOffset)dt;
-                else
-                    return (DateTime)dt;
+
+                return (DateTime)dt;
             }
 
             if (token.Type != JTokenType.String)

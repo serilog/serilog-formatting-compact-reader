@@ -14,15 +14,15 @@
 
 using Newtonsoft.Json.Linq;
 using Serilog.Events;
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace Serilog.Formatting.Compact.Reader
 {
     static class PropertyFactory
     {
+        const string TypeTagPropertyName = "$type";
+
         public static LogEventProperty CreateProperty(string name, JToken value, IEnumerable<Rendering> renderings)
         {
             return new LogEventProperty(name, CreatePropertyValue(value, renderings));
@@ -33,28 +33,23 @@ namespace Serilog.Formatting.Compact.Reader
             if (value.Type == JTokenType.Null)
                 return new ScalarValue(null);
 
-            var obj = value as JObject;
-            if (obj != null)
+            if (value is JObject obj)
             {
                 JToken tt;
-                obj.TryGetValue("$typeTag", out tt);
+                obj.TryGetValue(TypeTagPropertyName, out tt);
                 return new StructureValue(
-                    obj.Properties().Where(kvp => kvp.Name != "$typeTag").Select(kvp => CreateProperty(kvp.Name, kvp.Value, null)),
+                    obj.Properties().Where(kvp => kvp.Name != TypeTagPropertyName).Select(kvp => CreateProperty(kvp.Name, kvp.Value, null)),
                     tt?.Value<string>());
             }
 
-            var arr = value as JArray;
-            if (arr != null)
+            if (value is JArray arr)
             {
                 return new SequenceValue(arr.Select(v => CreatePropertyValue(v, null)));
             }
 
             var raw = value.Value<JValue>().Value;
 
-            if (renderings != null)
-                return new RenderableScalarValue(raw, renderings);
-
-            return new ScalarValue(raw);
+            return renderings != null ? new RenderableScalarValue(raw, renderings) : new ScalarValue(raw);
         }
     }
 }

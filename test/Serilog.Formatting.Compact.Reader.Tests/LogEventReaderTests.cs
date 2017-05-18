@@ -61,5 +61,15 @@ namespace Serilog.Formatting.Compact.Reader.Tests
 
             Assert.Equal(DateTimeOffset.Parse("2016-10-12T04:20:58.0554314Z"), evt.Timestamp);
         }
+
+        [Fact]
+        public void RoundTripsTypeTags()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@m\":\"Hello\",\"User\":{\"$type\":\"TestUser\",\"Name\":\"nblumhardt\"}}";
+            var evt = LogEventReader.ReadFromString(document);
+
+            var user = (StructureValue)evt.Properties["User"];
+            Assert.Equal("TestUser", user.TypeTag);
+        }
     }
 }

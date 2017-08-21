@@ -49,7 +49,9 @@ namespace Serilog.Formatting.Compact.Reader
 
             var raw = value.Value<JValue>().Value;
 
-            return renderings != null ? new RenderableScalarValue(raw, renderings) : new ScalarValue(raw);
+            return renderings != null && renderings.Any() ? 
+                new RenderableScalarValue(raw, renderings) :
+                new ScalarValue(raw);
         }
     }
 }

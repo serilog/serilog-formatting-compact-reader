@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using Serilog.Formatting.Compact;
 
-namespace Example
+namespace RoundTrip
 {
     public class Program
     {
@@ -17,6 +17,7 @@ namespace Example
             {
                 fileLog.Information("Hello, {@User}", new { Name = "nblumhardt", Id = 101 });
                 fileLog.Information("Number {N:x8}", 42);
+                fileLog.Information("String {S}", "Yes");
                 fileLog.Warning("Tags are {Tags}", new[] { "test", "orange" });
 
                 try
@@ -30,14 +31,13 @@ namespace Example
             }
 
             using (var console = new LoggerConfiguration()
-                .WriteTo.LiterateConsole()
+                .WriteTo.Console()
                 .CreateLogger())
             {
                 using (var clef = File.OpenText("log.clef"))
                 {
                     var reader = new LogEventReader(clef);
-                    LogEvent evt;
-                    while (reader.TryRead(out evt))
+                    while (reader.TryRead(out var evt))
                         console.Write(evt);
                 }
             }

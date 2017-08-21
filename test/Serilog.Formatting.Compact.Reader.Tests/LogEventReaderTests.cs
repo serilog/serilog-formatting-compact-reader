@@ -71,5 +71,18 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             var user = (StructureValue)evt.Properties["User"];
             Assert.Equal("TestUser", user.TypeTag);
         }
+
+        [Fact]
+        public void PassesThroughUnrecognizedReifiedProperties()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@m\":\"Hello\",\"@foo\":42}";
+            var evt = LogEventReader.ReadFromString(document);
+
+            var foo = (ScalarValue)evt.Properties["@foo"];
+            Assert.Equal(42, (int)(decimal)foo.Value);
+
+            // Ensure we don't just forward everything
+            Assert.False(evt.Properties.ContainsKey("@m"));
+        }
     }
 }

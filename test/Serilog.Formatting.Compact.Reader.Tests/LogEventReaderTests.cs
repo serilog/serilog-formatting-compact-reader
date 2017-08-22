@@ -79,7 +79,7 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             var evt = LogEventReader.ReadFromString(document);
 
             var foo = (ScalarValue)evt.Properties["@foo"];
-            Assert.Equal(42, (int)(decimal)foo.Value);
+            Assert.Equal(42, (int)foo.Value);
 
             // Ensure we don't just forward everything
             Assert.False(evt.Properties.ContainsKey("@m"));

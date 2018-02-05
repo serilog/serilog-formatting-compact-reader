@@ -130,15 +130,6 @@ namespace Serilog.Formatting.Compact.Reader
             if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out string ex))
                 exception = new TextException(ex);
 
-            var unrecognized = jObject.Properties().Where(p => ClefFields.IsUnrecognized(p.Name));
-            // ReSharper disable once PossibleMultipleEnumeration
-            if (unrecognized.Any())
-            {
-                // ReSharper disable once PossibleMultipleEnumeration
-                var names = string.Join(", ", unrecognized.Select(p => $"`{p.Name}`"));
-                throw new InvalidDataException($"{names} on line {lineNumber} are unrecognized.");
-            }
-
             var parsedTemplate = Parser.Parse(messageTemplate);
             var renderings = Enumerable.Empty<Rendering>();
 

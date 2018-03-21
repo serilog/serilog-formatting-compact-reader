@@ -4,6 +4,7 @@ using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Xunit;
 
 namespace Serilog.Formatting.Compact.Reader.Tests
@@ -83,6 +84,15 @@ namespace Serilog.Formatting.Compact.Reader.Tests
 
             // Ensure we don't just forward everything
             Assert.False(evt.Properties.ContainsKey("@m"));
+        }
+
+        [Fact]
+        public void MissingMessagesAreAcceptedAsEmpty()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\"}";
+            var evt = LogEventReader.ReadFromString(document);
+
+            Assert.Empty(evt.MessageTemplate.Tokens);
         }
     }
 }

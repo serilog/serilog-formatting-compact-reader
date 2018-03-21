@@ -114,14 +114,12 @@ namespace Serilog.Formatting.Compact.Reader
             var timestamp = GetRequiredTimestampField(lineNumber, jObject, ClefFields.Timestamp);
 
             string messageTemplate;
-            if (!TryGetOptionalField(lineNumber, jObject, ClefFields.MessageTemplate, out messageTemplate))
-            {
-                string message;
-                if (!TryGetOptionalField(lineNumber, jObject, ClefFields.Message, out message))
-                    throw new InvalidDataException($"The data on line {lineNumber} does not include the required `{ClefFields.MessageTemplate}` or `{ClefFields.Message}` field.");
-
-                messageTemplate = MessageTemplateSyntax.Escape(message);
-            }
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.MessageTemplate, out var mt))
+                messageTemplate = mt;
+            else if (TryGetOptionalField(lineNumber, jObject, ClefFields.Message, out var m))
+                messageTemplate = MessageTemplateSyntax.Escape(m);
+            else
+                messageTemplate = null;
 
             var level = LogEventLevel.Information;
             if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out string l))
@@ -130,7 +128,10 @@ namespace Serilog.Formatting.Compact.Reader
             if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out string ex))
                 exception = new TextException(ex);
 
-            var parsedTemplate = Parser.Parse(messageTemplate);
+            var parsedTemplate = messageTemplate == null ?
+                new MessageTemplate(Enumerable.Empty<MessageTemplateToken>()) :
+                Parser.Parse(messageTemplate);
+
             var renderings = Enumerable.Empty<Rendering>();
 
             if (jObject.TryGetValue(ClefFields.Renderings, out JToken r))

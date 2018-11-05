@@ -9,6 +9,13 @@ build_script:
 test: off
 artifacts:
 - path: artifacts/Serilog.*.nupkg
+only_commits:
+  files:
+    - serilog-sinks-compact-reader.sln
+    - src/Serilog.Sinks.Compact.Reader/
+    - Build.ps1
+    - assets/
+    - test/Serilog.Formatting.Compact.Reader.Tests/
 deploy:
 - provider: NuGet
   api_key:

@@ -1,6 +1,5 @@
 ﻿using Serilog.Formatting.Compact.Reader;
 using Serilog;
-using Serilog.Events;
 using System;
 using System.IO;
 using Serilog.Formatting.Compact;

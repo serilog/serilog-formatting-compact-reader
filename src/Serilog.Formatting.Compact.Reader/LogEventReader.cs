@@ -20,6 +20,7 @@ using Newtonsoft.Json.Linq;
 using Serilog.Events;
 using Serilog.Parsing;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Serilog.Formatting.Compact.Reader
 {
@@ -80,6 +81,34 @@ namespace Serilog.Formatting.Compact.Reader
 
             evt = ReadFromJObject(_lineNumber, fields);
             return true;
+        }
+
+        /// <summary>
+        /// Read a line from the input. Blank lines are skipped.
+        /// </summary>
+        /// <returns>A <see cref="LogEventReadResult"/> that indicates if an event could be read and, if the operation succeeded, the <see cref="LogEvent"/> that was read.</returns>
+        /// <exception cref="InvalidDataException">The data format is invalid.</exception>
+        public async Task<LogEventReadResult> TryReadAsync()
+        {
+            var line = await _text.ReadLineAsync();
+            _lineNumber++;
+            while (string.IsNullOrWhiteSpace(line))
+            {
+                if (line == null)
+                {
+                    return new LogEventReadResult(success: false, logEvent: default);
+                }
+                line = await _text.ReadLineAsync();
+                _lineNumber++;
+            }
+
+            var data = _serializer.Deserialize(new JsonTextReader(new StringReader(line)));
+            var fields = data as JObject;
+            if (fields is null)
+                throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
+
+            var evt = ReadFromJObject(_lineNumber, fields);
+            return new LogEventReadResult(success: true, logEvent: evt);
         }
 
         /// <summary>

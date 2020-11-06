@@ -2,13 +2,14 @@
 using Serilog;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Serilog.Formatting.Compact;
 
 namespace RoundTrip
 {
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             using (var fileLog = new LoggerConfiguration()
                 .WriteTo.File(new CompactJsonFormatter(), "log.clef")
@@ -36,8 +37,15 @@ namespace RoundTrip
                 using (var clef = File.OpenText("log.clef"))
                 {
                     var reader = new LogEventReader(clef);
-                    while (reader.TryRead(out var evt))
-                        console.Write(evt);
+                    LogEventReadResult result;
+
+                    do
+                    {
+                        result = await reader.TryReadAsync();
+                        if (!result.Success) break;
+                        console.Write(result.LogEvent);
+
+                    } while (result.Success);
                 }
             }
 

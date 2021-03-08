@@ -11,6 +11,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "global", "global", "{70BA4A
 		Build.ps1 = Build.ps1
 		LICENSE = LICENSE
 		README.md = README.md
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		global.json = global.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asset", "asset", "{71DD3779-3435-42D0-BA02-AEA04EE5B1E5}"

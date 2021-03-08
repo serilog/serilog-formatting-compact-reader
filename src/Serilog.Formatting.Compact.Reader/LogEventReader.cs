@@ -30,6 +30,7 @@ namespace Serilog.Formatting.Compact.Reader
     public class LogEventReader : IDisposable
     {
         static readonly MessageTemplateParser Parser = new MessageTemplateParser();
+        static readonly Rendering[] NoRenderings = new Rendering[0];
         readonly TextReader _text;
         readonly JsonSerializer _serializer;
 
@@ -132,7 +133,7 @@ namespace Serilog.Formatting.Compact.Reader
                 new MessageTemplate(Enumerable.Empty<MessageTemplateToken>()) :
                 Parser.Parse(messageTemplate);
 
-            var renderings = Enumerable.Empty<Rendering>();
+            var renderings = NoRenderings;
 
             if (jObject.TryGetValue(ClefFields.Renderings, out JToken r))
             {
@@ -153,13 +154,13 @@ namespace Serilog.Formatting.Compact.Reader
                 .Select(f =>
                 {
                     var name = ClefFields.Unescape(f.Name);
-                    var renderingsByFormat = renderings.Where(rd => rd.Name == name);
+                    var renderingsByFormat = renderings.Length != 0 ? renderings.Where(rd => rd.Name == name).ToArray() : NoRenderings;
                     return PropertyFactory.CreateProperty(name, f.Value, renderingsByFormat);
                 })
                 .ToList();
 
-            string eventId;
-            if (TryGetOptionalField(lineNumber, jObject, ClefFields.EventId, out eventId)) // TODO; should support numeric ids.
+            // TODO: this should attempt to support numeric ids.
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.EventId, out var eventId))
             {
                 properties.Add(new LogEventProperty("@i", new ScalarValue(eventId)));
             }

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26430.6
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30523.141
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E673DF37-5F53-48F6-9991-D762B8E35548}"
 EndProject
@@ -11,6 +11,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "global", "global", "{70BA4A
 		Build.ps1 = Build.ps1
 		LICENSE = LICENSE
 		README.md = README.md
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		global.json = global.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "asset", "asset", "{71DD3779-3435-42D0-BA02-AEA04EE5B1E5}"
@@ -54,5 +57,8 @@ Global
 		{D6A02FA9-860A-48AC-8288-8CEBC962D4DE} = {E673DF37-5F53-48F6-9991-D762B8E35548}
 		{961D5124-BBB2-4022-945E-1190BF6BE0C9} = {C3520C42-AC85-401C-B496-F51C816B784F}
 		{3C2D8E01-5580-426A-BDD9-EC59CD98E618} = {C76B8054-0892-42DA-83D5-88D731782FE8}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C0F6B3C6-5950-483C-8391-A2BFAD958790}
 	EndGlobalSection
 EndGlobal

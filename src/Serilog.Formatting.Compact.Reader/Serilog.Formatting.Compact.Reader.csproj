@@ -11,9 +11,9 @@
     <PublicSign Condition=" '$(OS)' != 'Windows_NT' ">true</PublicSign>
     <PackageId>Serilog.Formatting.Compact.Reader</PackageId>
     <PackageTags>serilog;json</PackageTags>
-    <PackageIconUrl>http://serilog.net/images/serilog-extension-nuget.png</PackageIconUrl>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/serilog/serilog-formatting-compact-reader</PackageProjectUrl>
-    <PackageLicenseUrl>http://www.apache.org/licenses/LICENSE-2.0</PackageLicenseUrl>
     <RepositoryUrl>https://github.com/serilog/serilog-formatting-compact-reader</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
@@ -29,8 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Properties" />
-    <Folder Include="Properties\" />
+    <None Include="..\..\asset\icon.png" Pack="true" Visible="false" PackagePath="" />
   </ItemGroup>
 
 </Project>

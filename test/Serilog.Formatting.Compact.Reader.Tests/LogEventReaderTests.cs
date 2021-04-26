@@ -19,12 +19,11 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             using (var clef = File.OpenText("LogEventReaderTests.clef"))
             {
                 var reader = new LogEventReader(clef);
-                LogEvent evt;
-                while (reader.TryRead(out evt))
+                while (reader.TryRead(out var evt))
                     all.Add(evt);
             }
 
-            Assert.Equal(5, all.Count);
+            Assert.Equal(6, all.Count);
         }
 
         [Fact]
@@ -93,6 +92,15 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             var evt = LogEventReader.ReadFromString(document);
 
             Assert.Empty(evt.MessageTemplate.Tokens);
+        }
+
+        [Fact]
+        public void EventIdIntegersAreAccepted()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@i\":42,\"@m\":\"Hello\"}";
+            var evt = LogEventReader.ReadFromString(document);
+            
+            Assert.Equal((uint)42, ((ScalarValue)evt.Properties["@i"]).Value);
         }
     }
 }

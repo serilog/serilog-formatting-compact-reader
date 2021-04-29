@@ -159,8 +159,7 @@ namespace Serilog.Formatting.Compact.Reader
                 })
                 .ToList();
 
-            // TODO: this should attempt to support numeric ids.
-            if (TryGetOptionalField(lineNumber, jObject, ClefFields.EventId, out var eventId))
+            if (TryGetOptionalEventId(lineNumber, jObject, ClefFields.EventId, out var eventId))
             {
                 properties.Add(new LogEventProperty("@i", new ScalarValue(eventId)));
             }
@@ -182,6 +181,29 @@ namespace Serilog.Formatting.Compact.Reader
 
             value = token.Value<string>();
             return true;
+        }
+
+        static bool TryGetOptionalEventId(int lineNumber, JObject data, string field, out object eventId)
+        {
+            JToken token;
+            if (!data.TryGetValue(field, out token) || token.Type == JTokenType.Null)
+            {
+                eventId = null;
+                return false;
+            }
+
+            switch (token.Type)
+            {
+                case JTokenType.String:
+                    eventId = token.Value<string>();
+                    return true;
+                case JTokenType.Integer:
+                    eventId = token.Value<uint>();
+                    return true;
+                default:
+                    throw new InvalidDataException(
+                        $"The value of `{field}` on line {lineNumber} is not in a supported format.");
+            }
         }
 
         static DateTimeOffset GetRequiredTimestampField(int lineNumber, JObject data, string field)

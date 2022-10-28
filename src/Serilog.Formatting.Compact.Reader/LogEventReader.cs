@@ -124,7 +124,7 @@ namespace Serilog.Formatting.Compact.Reader
 
             var level = LogEventLevel.Information;
             if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out string l))
-                level = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), l);
+                level = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), l, true);
             Exception exception = null;
             if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out string ex))
                 exception = new TextException(ex);

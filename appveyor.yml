@@ -1,7 +1,6 @@
 version: '{build}'
 skip_tags: true
-image: Visual Studio 2019
-configuration: Release
+image: Visual Studio 2022
 install:
   - ps: mkdir -Force ".\build\" | Out-Null
 build_script:
@@ -19,15 +18,15 @@ only_commits:
 deploy:
 - provider: NuGet
   api_key:
-    secure: GvzC+u5V9MCsCq/tMKxGvzhxRxxRk0RDHpKOjySL+WoJgIKnrjoqZRgdjEFrY3SC
+    secure: pXU3a6E4Uw0FJdGVwt+GP5XCjYU5KDUe6XWE77fWk6K0ujid44X9EbIYxhrhChbu
   skip_symbols: true
   on:
-    branch: /^(master|dev)$/
+    branch: /^(main|dev)$/
 - provider: GitHub
   auth_token:
     secure: p4LpVhBKxGS5WqucHxFQ5c7C8cP74kbNB0Z8k9Oxx/PMaDQ1+ibmoexNqVU5ZlmX
   artifact: /Serilog.*\.nupkg/
   tag: v$(appveyor_build_version)
   on:
-    branch: master
+    branch: main
     

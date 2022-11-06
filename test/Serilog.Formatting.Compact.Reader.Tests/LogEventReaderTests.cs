@@ -4,7 +4,7 @@ using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Serilog.Formatting.Compact.Reader.Tests
@@ -24,6 +24,28 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             }
 
             Assert.Equal(6, all.Count);
+        }
+
+        [Fact]
+        public async Task AllEventsAreReadAsynchronously()
+        {
+            var all = new List<LogEvent>();
+
+            using (var clef = File.OpenText("LogEventReaderTests.clef"))
+            {
+                var reader = new LogEventReader(clef);
+                LogEventReadResult result;
+
+                do
+                {
+                    result = await reader.TryReadAsync();
+
+                    if (result.Success)
+                        all.Add(result.LogEvent);
+                } while (result.Success);
+            }
+
+            Assert.Equal(5, all.Count);
         }
 
         [Fact]

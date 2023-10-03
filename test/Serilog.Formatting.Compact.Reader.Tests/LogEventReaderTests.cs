@@ -4,7 +4,6 @@ using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Xunit;
 
 namespace Serilog.Formatting.Compact.Reader.Tests
@@ -101,6 +100,16 @@ namespace Serilog.Formatting.Compact.Reader.Tests
             var evt = LogEventReader.ReadFromString(document);
             
             Assert.Equal((uint)42, ((ScalarValue)evt.Properties["@i"]).Value);
+        }
+        
+        [Fact]
+        public void ReadsTraceAndSpanIds()
+        {
+            const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@tr\":\"1befc31e94b01d1a473f63a7905f6c9b\",\"@sp\":\"bb1111820570b80e\"}";
+            var evt = LogEventReader.ReadFromString(document);
+
+            Assert.Equal("1befc31e94b01d1a473f63a7905f6c9b", evt.TraceId.ToString());
+            Assert.Equal("bb1111820570b80e", evt.SpanId.ToString());
         }
     }
 }

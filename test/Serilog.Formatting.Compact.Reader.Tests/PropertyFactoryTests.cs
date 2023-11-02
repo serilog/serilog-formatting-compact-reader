@@ -1,5 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
-using Serilog.Events;
+﻿using Serilog.Events;
+using System.Text.Json;
 using Xunit;
 
 namespace Serilog.Formatting.Compact.Reader.Tests
@@ -11,18 +11,24 @@ namespace Serilog.Formatting.Compact.Reader.Tests
         {
             const string name = "Test";
             const string value = "Value";
-            var p = PropertyFactory.CreateProperty(name, new JValue(value), null);
-            Assert.Equal(p.Name, name);
-            var s = Assert.IsType<ScalarValue>(p.Value);
-            Assert.Equal(value, s.Value);
+            using (var jd = JsonDocument.Parse($"{{\"{name}\": \"{value}\"}}"))
+            {
+                var p = PropertyFactory.CreateProperty(name, jd.RootElement.GetProperty(name), null);
+                Assert.Equal(p.Name, name);
+                var s = Assert.IsType<ScalarValue>(p.Value);
+                Assert.Equal(value, s.Value);
+            }
         }
 
         [Fact]
         public void InvalidPropertyNamesAreSubstituted()
         {
-            const string name = "";
-            var p = PropertyFactory.CreateProperty(name, new JValue((object)null), null);
-            Assert.NotEqual(p.Name, name);
+            using (var jd = JsonDocument.Parse("null"))
+            {
+                const string name = "";
+                var p = PropertyFactory.CreateProperty(name, jd.RootElement, null);
+                Assert.NotEqual(p.Name, name);
+            }
         }
     }
 }

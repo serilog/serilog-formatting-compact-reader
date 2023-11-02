@@ -16,8 +16,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 using Serilog.Events;
 using Serilog.Parsing;
 using System.Linq;
@@ -35,7 +34,6 @@ namespace Serilog.Formatting.Compact.Reader
         static readonly MessageTemplateParser Parser = new MessageTemplateParser();
         static readonly Rendering[] NoRenderings = Array.Empty<Rendering>();
         readonly TextReader _text;
-        readonly JsonSerializer _serializer;
 
         int _lineNumber;
 
@@ -43,11 +41,9 @@ namespace Serilog.Formatting.Compact.Reader
         /// Construct a <see cref="LogEventReader"/>.
         /// </summary>
         /// <param name="text">Text to read from.</param>
-        /// <param name="serializer">If specified, a JSON serializer used when converting event documents.</param>
-        public LogEventReader(TextReader text, JsonSerializer serializer = null)
+        public LogEventReader(TextReader text)
         {
             _text = text ?? throw new ArgumentNullException(nameof(text));
-            _serializer = serializer ?? CreateSerializer();
         }
 
         /// <inheritdoc/>
@@ -77,28 +73,46 @@ namespace Serilog.Formatting.Compact.Reader
                 _lineNumber++;
             }
 
-            var data = _serializer.Deserialize(new JsonTextReader(new StringReader(line)));
-            if (!(data is JObject fields))
-                throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
-
-            evt = ReadFromJObject(_lineNumber, fields);
+            JsonDocument data = null;
+            try
+            {
+                data = JsonDocument.Parse(line);
+            }
+            catch (JsonException)
+            {
+            }
+            using (data)
+            {
+                if (data == null || data.RootElement.ValueKind != JsonValueKind.Object)
+                    throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
+                evt = ReadFromJObject(_lineNumber, data.RootElement);
+            }
             return true;
         }
+
 
         /// <summary>
         /// Read a single log event from a JSON-encoded document.
         /// </summary>
         /// <param name="document">The event in compact-JSON.</param>
-        /// <param name="serializer">If specified, a JSON serializer used when converting event documents.</param>
         /// <returns>The log event.</returns>
-        public static LogEvent ReadFromString(string document, JsonSerializer serializer = null)
+        public static LogEvent ReadFromString(string document)
         {
             if (document == null) throw new ArgumentNullException(nameof(document));
-
-            serializer ??= CreateSerializer();
-            var jObject = serializer.Deserialize<JObject>(new JsonTextReader(new StringReader(document)));
-            return ReadFromJObject(jObject);
-
+            JsonDocument data = null;
+            try
+            {
+                data = JsonDocument.Parse(document);
+            }
+            catch (JsonException)
+            {
+            }
+            using (data)
+            {
+                if (data == null || data.RootElement.ValueKind != JsonValueKind.Object)
+                    throw new ArgumentException($"The document is not a complete JSON object.", nameof(document));
+                return ReadFromJObject(data.RootElement);
+            }
         }
 
         /// <summary>
@@ -106,13 +120,13 @@ namespace Serilog.Formatting.Compact.Reader
         /// </summary>
         /// <param name="jObject">The deserialized compact-JSON event.</param>
         /// <returns>The log event.</returns>
-        public static LogEvent ReadFromJObject(JObject jObject)
+        public static LogEvent ReadFromJObject(in JsonElement jObject)
         {
-            if (jObject == null) throw new ArgumentNullException(nameof(jObject));
+            if (jObject.ValueKind != JsonValueKind.Object) throw new ArgumentException(nameof(jObject));
             return ReadFromJObject(1, jObject);
         }
 
-        static LogEvent ReadFromJObject(int lineNumber, JObject jObject)
+        static LogEvent ReadFromJObject(int lineNumber, in JsonElement jObject)
         {
             var timestamp = GetRequiredTimestampField(lineNumber, jObject, ClefFields.Timestamp);
 
@@ -146,20 +160,20 @@ namespace Serilog.Formatting.Compact.Reader
 
             var renderings = NoRenderings;
 
-            if (jObject.TryGetValue(ClefFields.Renderings, out var r))
-            {
-                if (!(r is JArray renderedByIndex))
+            if (jObject.TryGetProperty(ClefFields.Renderings, out var r))
+            {                
+                if (!(r.ValueKind == JsonValueKind.Array))
                     throw new InvalidDataException($"The `{ClefFields.Renderings}` value on line {lineNumber} is not an array as expected.");
 
                 renderings = parsedTemplate.Tokens
                     .OfType<PropertyToken>()
                     .Where(t => t.Format != null)
-                    .Zip(renderedByIndex, (t, rd) => new Rendering(t.PropertyName, t.Format, rd.Value<string>()))
+                    .Zip(r.EnumerateArray(), (t, rd) => new Rendering(t.PropertyName, t.Format, rd.GetString()))
                     .ToArray();
             }
 
             var properties = jObject
-                .Properties()
+                .EnumerateObject()
                 .Where(f => !ClefFields.All.Contains(f.Name))
                 .Select(f =>
                 {
@@ -177,71 +191,62 @@ namespace Serilog.Formatting.Compact.Reader
             return new LogEvent(timestamp, level, exception, parsedTemplate, properties, traceId, spanId);
         }
 
-        static bool TryGetOptionalField(int lineNumber, JObject data, string field, out string value)
+        static bool TryGetOptionalField(int lineNumber, in JsonElement data, string field, out string value)
         {
-            if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
+            if(!data.TryGetProperty(field, out var prop) || prop.ValueKind == JsonValueKind.Null)
             {
                 value = null;
                 return false;
             }
 
-            if (token.Type != JTokenType.String)
+            if (prop.ValueKind != JsonValueKind.String)
                 throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
-            value = token.Value<string>();
+            value = prop.GetString();
             return true;
         }
 
-        static bool TryGetOptionalEventId(int lineNumber, JObject data, string field, out object eventId)
+        static bool TryGetOptionalEventId(int lineNumber, in JsonElement data, string field, out object eventId)
         {
-            if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
+            if (!data.TryGetProperty(field, out var prop) || prop.ValueKind == JsonValueKind.Null)
             {
                 eventId = null;
                 return false;
             }
 
-            switch (token.Type)
+            switch (prop.ValueKind)
             {
-                case JTokenType.String:
-                    eventId = token.Value<string>();
+                case JsonValueKind.String:
+                    eventId = prop.GetString();
                     return true;
-                case JTokenType.Integer:
-                    eventId = token.Value<uint>();
-                    return true;
-                default:
-                    throw new InvalidDataException(
-                        $"The value of `{field}` on line {lineNumber} is not in a supported format.");
+                case JsonValueKind.Number:
+                    if (prop.TryGetUInt32(out var v))
+                    {
+                        eventId = v;
+                        return true;
+                    }
+                    break;
             }
+
+            throw new InvalidDataException(
+                $"The value of `{field}` on line {lineNumber} is not in a supported format.");
         }
 
-        static DateTimeOffset GetRequiredTimestampField(int lineNumber, JObject data, string field)
+        static DateTimeOffset GetRequiredTimestampField(int lineNumber, in JsonElement data, string field)
         {
-            if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
+            if(!data.TryGetProperty(field, out var prop) || prop.ValueKind == JsonValueKind.Null)
                 throw new InvalidDataException($"The data on line {lineNumber} does not include the required `{field}` field.");
 
-            if (token.Type == JTokenType.Date)
-            {
-                var dt = token.Value<JValue>().Value;
-                if (dt is DateTimeOffset offset)
-                    return offset;
+            if (prop.TryGetDateTimeOffset(out var ret))
+                return ret;
+            if (prop.TryGetDateTime(out var dt))
+                return dt;
 
-                return (DateTime)dt!;
-            }
-
-            if (token.Type != JTokenType.String)
+            if (prop.ValueKind != JsonValueKind.String)
                 throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
-            var text = token.Value<string>();
+            var text = prop.GetString();
             return DateTimeOffset.Parse(text);
-        }
-
-        static JsonSerializer CreateSerializer()
-        {
-            return JsonSerializer.Create(new JsonSerializerSettings
-            {
-                DateParseHandling = DateParseHandling.None,
-                Culture = CultureInfo.InvariantCulture
-            });
         }
     }
 }

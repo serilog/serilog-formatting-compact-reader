@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using Newtonsoft.Json;
@@ -20,6 +21,8 @@ using Newtonsoft.Json.Linq;
 using Serilog.Events;
 using Serilog.Parsing;
 using System.Linq;
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnusedMember.Global
 
 namespace Serilog.Formatting.Compact.Reader
 {
@@ -30,7 +33,7 @@ namespace Serilog.Formatting.Compact.Reader
     public class LogEventReader : IDisposable
     {
         static readonly MessageTemplateParser Parser = new MessageTemplateParser();
-        static readonly Rendering[] NoRenderings = new Rendering[0];
+        static readonly Rendering[] NoRenderings = Array.Empty<Rendering>();
         readonly TextReader _text;
         readonly JsonSerializer _serializer;
 
@@ -75,8 +78,7 @@ namespace Serilog.Formatting.Compact.Reader
             }
 
             var data = _serializer.Deserialize(new JsonTextReader(new StringReader(line)));
-            var fields = data as JObject;
-            if (fields == null)
+            if (!(data is JObject fields))
                 throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
 
             evt = ReadFromJObject(_lineNumber, fields);
@@ -93,7 +95,7 @@ namespace Serilog.Formatting.Compact.Reader
         {
             if (document == null) throw new ArgumentNullException(nameof(document));
 
-            serializer = serializer ?? CreateSerializer();
+            serializer ??= CreateSerializer();
             var jObject = serializer.Deserialize<JObject>(new JsonTextReader(new StringReader(document)));
             return ReadFromJObject(jObject);
 
@@ -123,22 +125,30 @@ namespace Serilog.Formatting.Compact.Reader
                 messageTemplate = null;
 
             var level = LogEventLevel.Information;
-            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out string l))
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out var l))
                 level = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), l, true);
+
             Exception exception = null;
-            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out string ex))
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out var ex))
                 exception = new TextException(ex);
 
+            ActivityTraceId traceId = default;
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.TraceId, out var tr))
+                traceId = ActivityTraceId.CreateFromString(tr.AsSpan());
+            
+            ActivitySpanId spanId = default;
+            if (TryGetOptionalField(lineNumber, jObject, ClefFields.SpanId, out var sp))
+                spanId = ActivitySpanId.CreateFromString(sp.AsSpan());
+            
             var parsedTemplate = messageTemplate == null ?
                 new MessageTemplate(Enumerable.Empty<MessageTemplateToken>()) :
                 Parser.Parse(messageTemplate);
 
             var renderings = NoRenderings;
 
-            if (jObject.TryGetValue(ClefFields.Renderings, out JToken r))
+            if (jObject.TryGetValue(ClefFields.Renderings, out var r))
             {
-                var renderedByIndex = r as JArray;
-                if (renderedByIndex == null)
+                if (!(r is JArray renderedByIndex))
                     throw new InvalidDataException($"The `{ClefFields.Renderings}` value on line {lineNumber} is not an array as expected.");
 
                 renderings = parsedTemplate.Tokens
@@ -164,13 +174,12 @@ namespace Serilog.Formatting.Compact.Reader
                 properties.Add(new LogEventProperty("@i", new ScalarValue(eventId)));
             }
 
-            return new LogEvent(timestamp, level, exception, parsedTemplate, properties);
+            return new LogEvent(timestamp, level, exception, parsedTemplate, properties, traceId, spanId);
         }
 
         static bool TryGetOptionalField(int lineNumber, JObject data, string field, out string value)
         {
-            JToken token;
-            if (!data.TryGetValue(field, out token) || token.Type == JTokenType.Null)
+            if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
             {
                 value = null;
                 return false;
@@ -185,8 +194,7 @@ namespace Serilog.Formatting.Compact.Reader
 
         static bool TryGetOptionalEventId(int lineNumber, JObject data, string field, out object eventId)
         {
-            JToken token;
-            if (!data.TryGetValue(field, out token) || token.Type == JTokenType.Null)
+            if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
             {
                 eventId = null;
                 return false;
@@ -208,17 +216,16 @@ namespace Serilog.Formatting.Compact.Reader
 
         static DateTimeOffset GetRequiredTimestampField(int lineNumber, JObject data, string field)
         {
-            JToken token;
-            if (!data.TryGetValue(field, out token) || token.Type == JTokenType.Null)
+            if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
                 throw new InvalidDataException($"The data on line {lineNumber} does not include the required `{field}` field.");
 
             if (token.Type == JTokenType.Date)
             {
                 var dt = token.Value<JValue>().Value;
-                if (dt is DateTimeOffset)
-                    return (DateTimeOffset)dt;
+                if (dt is DateTimeOffset offset)
+                    return offset;
 
-                return (DateTime)dt;
+                return (DateTime)dt!;
             }
 
             if (token.Type != JTokenType.String)

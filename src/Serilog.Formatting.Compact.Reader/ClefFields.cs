@@ -28,8 +28,10 @@ namespace Serilog.Formatting.Compact.Reader
         public const string Renderings = "@r";
         public const string EventId = "@i";
         public const string Message = "@m";
+        public const string TraceId = "@tr";
+        public const string SpanId = "@sp";
 
-        public static readonly string[] All = { Timestamp, MessageTemplate, Level, Exception, Renderings, EventId, Message };
+        public static readonly string[] All = { Timestamp, MessageTemplate, Level, Exception, Renderings, EventId, Message, TraceId, SpanId };
 
         const string Prefix = "@";
         const string EscapedInitialAt = "@@";

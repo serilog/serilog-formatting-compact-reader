@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Serilog.Formatting.Compact.Reader
-{
-    class Rendering
-    {
-        public string Name { get; }
-        public string Format { get; }
-        public string Rendered { get; }
+namespace Serilog.Formatting.Compact.Reader;
 
-        public Rendering(string name, string format, string rendered)
-        {
-            Name = name;
-            Format = format;
-            Rendered = rendered;
-        }
+class Rendering
+{
+    public string Name { get; }
+    public string Format { get; }
+    public string Rendered { get; }
+
+    public Rendering(string name, string format, string rendered)
+    {
+        Name = name;
+        Format = format;
+        Rendered = rendered;
     }
 }

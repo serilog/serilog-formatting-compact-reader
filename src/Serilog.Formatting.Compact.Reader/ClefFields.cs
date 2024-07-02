@@ -12,44 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+namespace Serilog.Formatting.Compact.Reader;
 
-namespace Serilog.Formatting.Compact.Reader
+static class ClefFields
 {
-    static class ClefFields
+    public const string Timestamp = "@t";
+    public const string MessageTemplate = "@mt";
+    public const string Level = "@l";
+    public const string Exception = "@x";
+    public const string Renderings = "@r";
+    public const string EventId = "@i";
+    public const string Message = "@m";
+    public const string TraceId = "@tr";
+    public const string SpanId = "@sp";
+
+    public static readonly string[] All = [Timestamp, MessageTemplate, Level, Exception, Renderings, EventId, Message, TraceId, SpanId
+    ];
+
+    const string Prefix = "@";
+    const string EscapedInitialAt = "@@";
+
+    public static string Unescape(string name)
     {
-        public const string Timestamp = "@t";
-        public const string MessageTemplate = "@mt";
-        public const string Level = "@l";
-        public const string Exception = "@x";
-        public const string Renderings = "@r";
-        public const string EventId = "@i";
-        public const string Message = "@m";
-        public const string TraceId = "@tr";
-        public const string SpanId = "@sp";
+        if (name.StartsWith(EscapedInitialAt))
+            return name.Substring(1);
 
-        public static readonly string[] All = { Timestamp, MessageTemplate, Level, Exception, Renderings, EventId, Message, TraceId, SpanId };
-
-        const string Prefix = "@";
-        const string EscapedInitialAt = "@@";
-
-        public static string Unescape(string name)
-        {
-            if (name.StartsWith(EscapedInitialAt))
-                return name.Substring(1);
-
-            return name;
-        }
-
-        public static bool IsUnrecognized(string name)
-        {
-            return !name.StartsWith(EscapedInitialAt) &&
-                name.StartsWith(Prefix) &&
-                !All.Contains(name);
-        }
+        return name;
     }
 
+    public static bool IsUnrecognized(string name)
+    {
+        return !name.StartsWith(EscapedInitialAt) &&
+               name.StartsWith(Prefix) &&
+               !All.Contains(name);
+    }
 }

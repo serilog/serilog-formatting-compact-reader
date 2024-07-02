@@ -1,10 +1,10 @@
-echo "build: Build started"
+Write-Output "build: Build started"
 
 Push-Location $PSScriptRoot
 
 if(Test-Path .\artifacts) {
-	echo "build: Cleaning .\artifacts"
-	Remove-Item .\artifacts -Force -Recurse
+	Write-Output "build: Cleaning ./artifacts"
+	Remove-Item ./artifacts -Force -Recurse
 }
 
 & dotnet restore --no-cache
@@ -18,29 +18,31 @@ $buildSuffix = @{ $true = "$($suffix)-$($commitHash)"; $false = "$($branch)-$($c
 echo "build: Package version suffix is $suffix"
 echo "build: Build version suffix is $buildSuffix" 
 
-foreach ($src in ls src/*) {
+foreach ($src in Get-ChildItem src/*) {
     Push-Location $src
 
-	echo "build: Packaging project in $src"
+	Write-Output "build: Packaging project in $src"
 
-    & dotnet build -c Release --version-suffix=$buildSuffix
+    & dotnet build -c Release --version-suffix=$buildSuffix -p:ContinuousIntegrationBuild=true
+    if($LASTEXITCODE -ne 0) { throw "Build failed" }
+    
     if ($suffix) {
-        & dotnet pack -c Release --include-source -o ..\..\artifacts --version-suffix=$suffix --no-build
+        & dotnet pack -c Release -o ..\..\artifacts --version-suffix=$suffix --no-build
     } else {
-        & dotnet pack -c Release --include-source -o ..\..\artifacts --no-build
+        & dotnet pack -c Release -o ..\..\artifacts --no-build
     }
-    if($LASTEXITCODE -ne 0) { exit 1 }    
+    if($LASTEXITCODE -ne 0) { throw "Packaging failed" }
 
     Pop-Location
 }
 
-foreach ($test in ls test/*.Tests) {
+foreach ($test in Get-ChildItem test/*.Tests) {
     Push-Location $test
 
-	echo "build: Testing project in $test"
+	Write-Output "build: Testing project in $test"
 
     & dotnet test -c Release
-    if($LASTEXITCODE -ne 0) { exit 3 }
+    if($LASTEXITCODE -ne 0) { throw "Testing failed" }
 
     Pop-Location
 }

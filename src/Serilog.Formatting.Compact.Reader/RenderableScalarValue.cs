@@ -12,32 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.IO;
 using Serilog.Events;
-using System.Collections.Generic;
 
-namespace Serilog.Formatting.Compact.Reader
+namespace Serilog.Formatting.Compact.Reader;
+
+class RenderableScalarValue : ScalarValue
 {
-    class RenderableScalarValue : ScalarValue
+    readonly Dictionary<string, string> _renderings = new();
+
+    public RenderableScalarValue(object? value, IEnumerable<Rendering> renderings)
+        : base(value)
     {
-        readonly Dictionary<string, string> _renderings = new Dictionary<string, string>();
+        if (renderings == null) throw new ArgumentNullException(nameof(renderings));
+        foreach (var rendering in renderings)
+            _renderings[rendering.Format] = rendering.Rendered;
+    }
 
-        public RenderableScalarValue(object value, IEnumerable<Rendering> renderings)
-            : base(value)
-        {
-            if (renderings == null) throw new ArgumentNullException(nameof(renderings));
-            foreach (var rendering in renderings)
-                _renderings[rendering.Format] = rendering.Rendered;
-        }
-
-        public override void Render(TextWriter output, string format = null, IFormatProvider formatProvider = null)
-        {
-            string rendering;
-            if (format != null && _renderings.TryGetValue(format, out rendering))
-                output.Write(rendering);
-            else
-                base.Render(output, format, formatProvider);
-        }
+    public override void Render(TextWriter output, string? format = null, IFormatProvider? formatProvider = null)
+    {
+        if (format != null && _renderings.TryGetValue(format, out var rendering))
+            output.Write(rendering);
+        else
+            base.Render(output, format, formatProvider);
     }
 }

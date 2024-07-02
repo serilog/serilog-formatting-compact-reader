@@ -7,49 +7,46 @@ This package reads (deserializes) JSON log files created by [Serilog.Formatting.
 Log events are written to a file using `CompactJsonFormatter`:
 
 ```csharp
-using (var fileLog = new LoggerConfiguration()
+await using var fileLog = new LoggerConfiguration()
     .WriteTo.File(new CompactJsonFormatter(), "log.clef")
-    .CreateLogger())
-{
-    fileLog.Information("Hello, {@User}", new { Name = "nblumhardt", Id = 101 });
-    fileLog.Information("Number {N:x8}", 42);
-    fileLog.Warning("Tags are {Tags}", new[] { "test", "orange" });
+    .CreateLogger();
 
-    try
-    {
-        throw new DivideByZeroException();
-    }
-    catch(Exception ex)
-    {
-        fileLog.Error(ex, "Something failed");
-    }
+fileLog.Information("Hello, {@User}", new { Name = "nblumhardt", Id = 101 });
+fileLog.Information("Number {N:x8}", 42);
+fileLog.Warning("Tags are {Tags}", new[] { "test", "orange" });
+
+try
+{
+    throw new DivideByZeroException();
+}
+catch(Exception ex)
+{
+    fileLog.Error(ex, "Something failed");
 }
 ```
 
 This creates a log file with content similar to:
 
 ```json
-{"@t":"2016-10-12T04:46:58.0554314Z","@mt":"Hello, {@User}","User":{"Name":"nblumhardt","Id":101}}
-{"@t":"2016-10-12T04:46:58.0684369Z","@mt":"Number {N:x8}","@r":["0000002a"],"N":42}
-{"@t":"2016-10-12T04:46:58.0724384Z","@mt":"Tags are {Tags}","@l":"Warning","Tags":["test","orange"]}
-{"@t":"2016-10-12T04:46:58.0904378Z","@mt":"Something failed","@l":"Error", "@x":"System.DivideByZer...<snip>"}
+{"@t":"2024-10-12T04:46:58.0554314Z","@mt":"Hello, {@User}","User":{"Name":"nblumhardt","Id":101}}
+{"@t":"2024-10-12T04:46:58.0684369Z","@mt":"Number {N:x8}","@r":["0000002a"],"N":42}
+{"@t":"2024-10-12T04:46:58.0724384Z","@mt":"Tags are {Tags}","@l":"Warning","Tags":["test","orange"]}
+{"@t":"2024-10-12T04:46:58.0904378Z","@mt":"Something failed","@l":"Error", "@x":"System.DivideByZer...<snip>"}
 ```
 
 An instance of `LogEventReader` converts each line of the log file back into a `LogEvent`, which can be manipulated, rendered, or written through another Serilog sink:
 
 ```csharp
-using (var console = new LoggerConfiguration()
-    .WriteTo.LiterateConsole()
-    .CreateLogger())
-{
-    using (var clef = File.OpenText("log.clef"))
-    {
-        var reader = new LogEventReader(clef);
-        LogEvent evt;
-        while (reader.TryRead(out evt))
-            console.Write(evt);
-    }
-}
+await using var console = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateLogger();
+
+await using var clef = File.OpenText("log.clef"))
+
+var reader = new LogEventReader(clef);
+
+while (reader.TryRead(out var evt))
+    console.Write(evt);
 ```
 
 Output from the logger:

@@ -76,7 +76,17 @@ public class LogEventReader : IDisposable
             _lineNumber++;
         }
 
-        var data = _serializer.Deserialize(new JsonTextReader(new StringReader(line)));
+        object? data;
+        try
+        {
+            using var reader = new JsonTextReader(new StringReader(line));
+            data = _serializer.Deserialize(reader);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.", ex);
+        }
+
         if (data is not JObject fields)
             throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
 
@@ -90,13 +100,27 @@ public class LogEventReader : IDisposable
     /// <param name="document">The event in compact-JSON.</param>
     /// <param name="serializer">If specified, a JSON serializer used when converting event documents.</param>
     /// <returns>The log event.</returns>
+    /// <exception cref="InvalidDataException">The data format is invalid.</exception>
     public static LogEvent ReadFromString(string document, JsonSerializer? serializer = null)
     {
         if (document == null) throw new ArgumentNullException(nameof(document));
 
         serializer ??= CreateSerializer();
-        var jObject = serializer.Deserialize<JObject>(new JsonTextReader(new StringReader(document)));
-        return ReadFromJObject(jObject!);
+        object? result;
+        try
+        {
+            using var reader = new JsonTextReader(new StringReader(document));
+            result = serializer.Deserialize(reader);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException($"The document is not a complete JSON object.", ex);
+        }
+
+        if (result is not JObject jObject)
+            throw new InvalidDataException($"The document is not a complete JSON object.");
+
+        return ReadFromJObject(jObject);
     }
 
     /// <summary>
@@ -104,6 +128,7 @@ public class LogEventReader : IDisposable
     /// </summary>
     /// <param name="jObject">The deserialized compact-JSON event.</param>
     /// <returns>The log event.</returns>
+    /// <exception cref="InvalidDataException">The data format is invalid.</exception>
     public static LogEvent ReadFromJObject(JObject jObject)
     {
         if (jObject == null) throw new ArgumentNullException(nameof(jObject));
@@ -123,8 +148,8 @@ public class LogEventReader : IDisposable
             messageTemplate = null;
 
         var level = LogEventLevel.Information;
-        if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out var l))
-            level = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), l, true);
+        if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out var l) && !Enum.TryParse(l, true, out level))
+            throw new InvalidDataException($"The `{ClefFields.Level}` value on line {lineNumber} is not a valid {nameof(LogEventLevel)}.");
 
         Exception? exception = null;
         if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out var ex))
@@ -222,15 +247,20 @@ public class LogEventReader : IDisposable
             var dt = token.Value<JValue>()!.Value;
             if (dt is DateTimeOffset offset)
                 return offset;
-
-            return (DateTime)dt!;
+            else
+                return (DateTime)dt!;
         }
+        else
+        {
+            if (token.Type != JTokenType.String)
+                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
-        if (token.Type != JTokenType.String)
-            throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
+            var text = token.Value<string>()!;
+            if (!DateTimeOffset.TryParse(text, out var offset))
+                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
-        var text = token.Value<string>()!;
-        return DateTimeOffset.Parse(text);
+            return offset;
+        }
     }
 
     static JsonSerializer CreateSerializer()

@@ -84,11 +84,11 @@ public class LogEventReader : IDisposable
         }
         catch (Exception ex)
         {
-            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.", ex);
+            throw new InvalidDataException($"The data on line {_lineNumber} could not be deserialized.", ex);
         }
 
         if (data is not JObject fields)
-            throw new InvalidDataException($"The data on line {_lineNumber} could not be deserialized.");
+            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
 
         evt = ReadFromJObject(_lineNumber, fields);
         return true;

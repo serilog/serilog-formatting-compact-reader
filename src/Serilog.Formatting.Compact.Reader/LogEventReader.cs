@@ -88,7 +88,7 @@ public class LogEventReader : IDisposable
         }
 
         if (data is not JObject fields)
-            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
+            throw new InvalidDataException($"The data on line {_lineNumber} could not be deserialized.");
 
         evt = ReadFromJObject(_lineNumber, fields);
         return true;
@@ -114,7 +114,7 @@ public class LogEventReader : IDisposable
         }
         catch (Exception ex)
         {
-            throw new InvalidDataException($"The document is not a complete JSON object.", ex);
+            throw new InvalidDataException($"The document could not be deserialized.", ex);
         }
 
         if (result is not JObject jObject)
@@ -149,7 +149,7 @@ public class LogEventReader : IDisposable
 
         var level = LogEventLevel.Information;
         if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out var l) && !Enum.TryParse(l, true, out level))
-            throw new InvalidDataException($"The `{ClefFields.Level}` value on line {lineNumber} is not a valid {nameof(LogEventLevel)}.");
+            throw new InvalidDataException($"The `{ClefFields.Level}` value on line {lineNumber} is not a valid `{nameof(LogEventLevel)}`.");
 
         Exception? exception = null;
         if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out var ex))
@@ -247,8 +247,8 @@ public class LogEventReader : IDisposable
             var dt = token.Value<JValue>()!.Value;
             if (dt is DateTimeOffset offset)
                 return offset;
-            else
-                return (DateTime)dt!;
+
+            return (DateTime)dt!;
         }
         else
         {
@@ -257,7 +257,7 @@ public class LogEventReader : IDisposable
 
             var text = token.Value<string>()!;
             if (!DateTimeOffset.TryParse(text, out var offset))
-                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
+                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported timestamp format.");
 
             return offset;
         }

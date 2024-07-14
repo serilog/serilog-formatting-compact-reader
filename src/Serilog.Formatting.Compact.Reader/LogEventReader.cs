@@ -114,11 +114,11 @@ public class LogEventReader : IDisposable
         }
         catch (Exception ex)
         {
-            throw new InvalidDataException($"The document could not be deserialized.", ex);
+            throw new InvalidDataException("The document could not be deserialized.", ex);
         }
 
         if (result is not JObject jObject)
-            throw new InvalidDataException($"The document is not a complete JSON object.");
+            throw new InvalidDataException("The document is not a complete JSON object.");
 
         return ReadFromJObject(jObject);
     }

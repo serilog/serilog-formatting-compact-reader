@@ -98,10 +98,10 @@ public class LogEventReaderTests
     {
         const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@i\":42,\"@m\":\"Hello\"}";
         var evt = LogEventReader.ReadFromString(document);
-            
+
         Assert.Equal((uint)42, ((ScalarValue)evt.Properties["@i"]).Value);
     }
-        
+
     [Fact]
     public void ReadsTraceAndSpanIds()
     {
@@ -110,5 +110,34 @@ public class LogEventReaderTests
 
         Assert.Equal("1befc31e94b01d1a473f63a7905f6c9b", evt.TraceId.ToString());
         Assert.Equal("bb1111820570b80e", evt.SpanId.ToString());
+    }
+
+    [Fact]
+    public void EmptyDocumentThrowsInvalidDataException()
+    {
+        Assert.Throws<InvalidDataException>(() => LogEventReader.ReadFromString(string.Empty));
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("{}")]
+    [InlineData("#$%")]
+    [InlineData("{\"@t\":0}")]
+    [InlineData("{\"@t\":\"2016-02-30\"}")]
+    [InlineData("{\"@t\":\"2016-02-12\"")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@l\":\"Trace\"}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@r\":\"[]\"}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@m\":0}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@mt\":[]}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@x\":[\"\"]}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@tr\":{}}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@sp\":true}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@i\":true}")]
+    public void InvalidDataThrowsInvalidDataException(string document)
+    {
+        using var reader = new LogEventReader(new StringReader(document));
+
+        Assert.Throws<InvalidDataException>(() => reader.TryRead(out _));
+        Assert.Throws<InvalidDataException>(() => LogEventReader.ReadFromString(document));
     }
 }

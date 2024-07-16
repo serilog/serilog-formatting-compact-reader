@@ -29,9 +29,9 @@ await using (var console = new LoggerConfiguration()
     .CreateLogger())
 {
     using (var clef = File.OpenText("log.clef"))
+    using (var reader = new LogEventReader(clef))
     {
-        var reader = new LogEventReader(clef);
-        while (reader.TryRead(out var evt))
+        while (await reader.TryReadAsync() is { } evt)
             console.Write(evt);
     }
 }

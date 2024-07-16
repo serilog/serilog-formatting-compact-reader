@@ -4,6 +4,7 @@ using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Serilog.Formatting.Compact.Reader.Tests;
@@ -16,9 +17,24 @@ public class LogEventReaderTests
         var all = new List<LogEvent>();
 
         using (var clef = File.OpenText("LogEventReaderTests.clef"))
+        using (var reader = new LogEventReader(clef))
         {
-            var reader = new LogEventReader(clef);
             while (reader.TryRead(out var evt))
+                all.Add(evt);
+        }
+
+        Assert.Equal(6, all.Count);
+    }
+
+    [Fact]
+    public async Task AllEventsAreReadAsynchronously()
+    {
+        var all = new List<LogEvent>();
+
+        using (var clef = File.OpenText("LogEventReaderTests.clef"))
+        using (var reader = new LogEventReader(clef))
+        {
+            while (await reader.TryReadAsync() is { } evt)
                 all.Add(evt);
         }
 
@@ -133,11 +149,14 @@ public class LogEventReaderTests
     [InlineData("{\"@t\":\"2016-02-12\",\"@tr\":{}}")]
     [InlineData("{\"@t\":\"2016-02-12\",\"@sp\":true}")]
     [InlineData("{\"@t\":\"2016-02-12\",\"@i\":true}")]
-    public void InvalidDataThrowsInvalidDataException(string document)
+    public async Task InvalidDataThrowsInvalidDataException(string document)
     {
         using var reader = new LogEventReader(new StringReader(document));
-
         Assert.Throws<InvalidDataException>(() => reader.TryRead(out _));
+
+        using var asyncReader = new LogEventReader(new StringReader(document));
+        await Assert.ThrowsAsync<InvalidDataException>(asyncReader.TryReadAsync);
+
         Assert.Throws<InvalidDataException>(() => LogEventReader.ReadFromString(document));
     }
 }

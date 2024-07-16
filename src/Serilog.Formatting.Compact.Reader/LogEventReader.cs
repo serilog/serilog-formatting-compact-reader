@@ -76,22 +76,30 @@ public class LogEventReader : IDisposable
             _lineNumber++;
         }
 
-        object? data;
-        try
-        {
-            using var reader = new JsonTextReader(new StringReader(line));
-            data = _serializer.Deserialize(reader);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidDataException($"The data on line {_lineNumber} could not be deserialized.", ex);
-        }
-
-        if (data is not JObject fields)
-            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
-
-        evt = ReadFromJObject(_lineNumber, fields);
+        evt = ParseLine(line);
         return true;
+    }
+
+    /// <summary>
+    /// Read a line from the input asynchronously. Blank lines are skipped.
+    /// </summary>
+    /// <returns>The parsed <see cref="LogEvent" /> if one could be read; <see langword="null"/> if the end-of-file was encountered.</returns>
+    /// <exception cref="InvalidDataException">The data format is invalid.</exception>
+    public async Task<LogEvent?> TryReadAsync()
+    {
+        var line = await _text.ReadLineAsync().ConfigureAwait(false);
+        _lineNumber++;
+        while (string.IsNullOrWhiteSpace(line))
+        {
+            if (line == null)
+            {
+                return null;
+            }
+            line = await _text.ReadLineAsync().ConfigureAwait(false);
+            _lineNumber++;
+        }
+
+        return ParseLine(line);
     }
 
     /// <summary>
@@ -133,6 +141,25 @@ public class LogEventReader : IDisposable
     {
         if (jObject == null) throw new ArgumentNullException(nameof(jObject));
         return ReadFromJObject(1, jObject);
+    }
+
+    LogEvent ParseLine(string line)
+    {
+        object? data;
+        try
+        {
+            using var reader = new JsonTextReader(new StringReader(line));
+            data = _serializer.Deserialize(reader);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException($"The data on line {_lineNumber} could not be deserialized.", ex);
+        }
+
+        if (data is not JObject fields)
+            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
+
+        return ReadFromJObject(_lineNumber, fields);
     }
 
     static LogEvent ReadFromJObject(int lineNumber, JObject jObject)

@@ -102,6 +102,27 @@ public class LogEventReader : IDisposable
         return ParseLine(line);
     }
 
+#if NET7_0_OR_GREATER
+    /// <inheritdoc cref="TryReadAsync()" />
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    public async Task<LogEvent?> TryReadAsync(CancellationToken cancellationToken)
+    {
+        var line = await _text.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+        _lineNumber++;
+        while (string.IsNullOrWhiteSpace(line))
+        {
+            if (line == null)
+            {
+                return null;
+            }
+            line = await _text.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            _lineNumber++;
+        }
+
+        return ParseLine(line);
+    }
+#endif
+
     /// <summary>
     /// Read a single log event from a JSON-encoded document.
     /// </summary>

@@ -28,6 +28,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <PropertyGroup Condition=" '$(TargetFramework)' == 'net8.0' ">
+    <DefineConstants>$(DefineConstants);FEATURE_READ_LINE_ASYNC_CANCELLATION</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Serilog" Version="4.0.0" />

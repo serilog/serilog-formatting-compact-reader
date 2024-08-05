@@ -4,6 +4,7 @@ using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -156,6 +157,11 @@ public class LogEventReaderTests
 
         using var asyncReader = new LogEventReader(new StringReader(document));
         await Assert.ThrowsAsync<InvalidDataException>(asyncReader.TryReadAsync);
+
+#if NET7_0_OR_GREATER
+        using var asyncReader2 = new LogEventReader(new StringReader(document));
+        await Assert.ThrowsAsync<InvalidDataException>(async () => await asyncReader2.TryReadAsync(CancellationToken.None));
+#endif
 
         Assert.Throws<InvalidDataException>(() => LogEventReader.ReadFromString(document));
     }

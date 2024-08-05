@@ -102,7 +102,7 @@ public class LogEventReader : IDisposable
         return ParseLine(line);
     }
 
-#if NET7_0_OR_GREATER
+#if FEATURE_READ_LINE_ASYNC_CANCELLATION
     /// <inheritdoc cref="TryReadAsync()" />
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     public async Task<LogEvent?> TryReadAsync(CancellationToken cancellationToken)

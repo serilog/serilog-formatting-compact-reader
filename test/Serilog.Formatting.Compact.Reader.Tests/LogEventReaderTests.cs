@@ -4,6 +4,8 @@ using Serilog.Events;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Serilog.Formatting.Compact.Reader.Tests;
@@ -16,9 +18,24 @@ public class LogEventReaderTests
         var all = new List<LogEvent>();
 
         using (var clef = File.OpenText("LogEventReaderTests.clef"))
+        using (var reader = new LogEventReader(clef))
         {
-            var reader = new LogEventReader(clef);
             while (reader.TryRead(out var evt))
+                all.Add(evt);
+        }
+
+        Assert.Equal(6, all.Count);
+    }
+
+    [Fact]
+    public async Task AllEventsAreReadAsynchronously()
+    {
+        var all = new List<LogEvent>();
+
+        using (var clef = File.OpenText("LogEventReaderTests.clef"))
+        using (var reader = new LogEventReader(clef))
+        {
+            while (await reader.TryReadAsync() is { } evt)
                 all.Add(evt);
         }
 
@@ -98,10 +115,10 @@ public class LogEventReaderTests
     {
         const string document = "{\"@t\":\"2016-10-12T04:20:58.0554314Z\",\"@i\":42,\"@m\":\"Hello\"}";
         var evt = LogEventReader.ReadFromString(document);
-            
+
         Assert.Equal((uint)42, ((ScalarValue)evt.Properties["@i"]).Value);
     }
-        
+
     [Fact]
     public void ReadsTraceAndSpanIds()
     {
@@ -110,5 +127,42 @@ public class LogEventReaderTests
 
         Assert.Equal("1befc31e94b01d1a473f63a7905f6c9b", evt.TraceId.ToString());
         Assert.Equal("bb1111820570b80e", evt.SpanId.ToString());
+    }
+
+    [Fact]
+    public void EmptyDocumentThrowsInvalidDataException()
+    {
+        Assert.Throws<InvalidDataException>(() => LogEventReader.ReadFromString(string.Empty));
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("{}")]
+    [InlineData("#$%")]
+    [InlineData("{\"@t\":0}")]
+    [InlineData("{\"@t\":\"2016-02-30\"}")]
+    [InlineData("{\"@t\":\"2016-02-12\"")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@l\":\"Trace\"}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@r\":\"[]\"}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@m\":0}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@mt\":[]}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@x\":[\"\"]}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@tr\":{}}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@sp\":true}")]
+    [InlineData("{\"@t\":\"2016-02-12\",\"@i\":true}")]
+    public async Task InvalidDataThrowsInvalidDataException(string document)
+    {
+        using var reader = new LogEventReader(new StringReader(document));
+        Assert.Throws<InvalidDataException>(() => reader.TryRead(out _));
+
+        using var asyncReader = new LogEventReader(new StringReader(document));
+        await Assert.ThrowsAsync<InvalidDataException>(asyncReader.TryReadAsync);
+
+#if NET7_0_OR_GREATER
+        using var asyncReader2 = new LogEventReader(new StringReader(document));
+        await Assert.ThrowsAsync<InvalidDataException>(async () => await asyncReader2.TryReadAsync(CancellationToken.None));
+#endif
+
+        Assert.Throws<InvalidDataException>(() => LogEventReader.ReadFromString(document));
     }
 }

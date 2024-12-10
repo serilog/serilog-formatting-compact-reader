@@ -76,13 +76,52 @@ public class LogEventReader : IDisposable
             _lineNumber++;
         }
 
-        var data = _serializer.Deserialize(new JsonTextReader(new StringReader(line)));
-        if (data is not JObject fields)
-            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
-
-        evt = ReadFromJObject(_lineNumber, fields);
+        evt = ParseLine(line);
         return true;
     }
+
+    /// <summary>
+    /// Read a line from the input asynchronously. Blank lines are skipped.
+    /// </summary>
+    /// <returns>The parsed <see cref="LogEvent" /> if one could be read; <see langword="null"/> if the end-of-file was encountered.</returns>
+    /// <exception cref="InvalidDataException">The data format is invalid.</exception>
+    public async Task<LogEvent?> TryReadAsync()
+    {
+        var line = await _text.ReadLineAsync().ConfigureAwait(false);
+        _lineNumber++;
+        while (string.IsNullOrWhiteSpace(line))
+        {
+            if (line == null)
+            {
+                return null;
+            }
+            line = await _text.ReadLineAsync().ConfigureAwait(false);
+            _lineNumber++;
+        }
+
+        return ParseLine(line);
+    }
+
+#if FEATURE_READ_LINE_ASYNC_CANCELLATION
+    /// <inheritdoc cref="TryReadAsync()" />
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    public async Task<LogEvent?> TryReadAsync(CancellationToken cancellationToken)
+    {
+        var line = await _text.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+        _lineNumber++;
+        while (string.IsNullOrWhiteSpace(line))
+        {
+            if (line == null)
+            {
+                return null;
+            }
+            line = await _text.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            _lineNumber++;
+        }
+
+        return ParseLine(line);
+    }
+#endif
 
     /// <summary>
     /// Read a single log event from a JSON-encoded document.
@@ -90,13 +129,27 @@ public class LogEventReader : IDisposable
     /// <param name="document">The event in compact-JSON.</param>
     /// <param name="serializer">If specified, a JSON serializer used when converting event documents.</param>
     /// <returns>The log event.</returns>
+    /// <exception cref="InvalidDataException">The data format is invalid.</exception>
     public static LogEvent ReadFromString(string document, JsonSerializer? serializer = null)
     {
         if (document == null) throw new ArgumentNullException(nameof(document));
 
         serializer ??= CreateSerializer();
-        var jObject = serializer.Deserialize<JObject>(new JsonTextReader(new StringReader(document)));
-        return ReadFromJObject(jObject!);
+        object? result;
+        try
+        {
+            using var reader = new JsonTextReader(new StringReader(document));
+            result = serializer.Deserialize(reader);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException("The document could not be deserialized.", ex);
+        }
+
+        if (result is not JObject jObject)
+            throw new InvalidDataException("The document is not a complete JSON object.");
+
+        return ReadFromJObject(jObject);
     }
 
     /// <summary>
@@ -104,10 +157,30 @@ public class LogEventReader : IDisposable
     /// </summary>
     /// <param name="jObject">The deserialized compact-JSON event.</param>
     /// <returns>The log event.</returns>
+    /// <exception cref="InvalidDataException">The data format is invalid.</exception>
     public static LogEvent ReadFromJObject(JObject jObject)
     {
         if (jObject == null) throw new ArgumentNullException(nameof(jObject));
         return ReadFromJObject(1, jObject);
+    }
+
+    LogEvent ParseLine(string line)
+    {
+        object? data;
+        try
+        {
+            using var reader = new JsonTextReader(new StringReader(line));
+            data = _serializer.Deserialize(reader);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidDataException($"The data on line {_lineNumber} could not be deserialized.", ex);
+        }
+
+        if (data is not JObject fields)
+            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
+
+        return ReadFromJObject(_lineNumber, fields);
     }
 
     static LogEvent ReadFromJObject(int lineNumber, JObject jObject)
@@ -123,8 +196,8 @@ public class LogEventReader : IDisposable
             messageTemplate = null;
 
         var level = LogEventLevel.Information;
-        if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out var l))
-            level = (LogEventLevel)Enum.Parse(typeof(LogEventLevel), l, true);
+        if (TryGetOptionalField(lineNumber, jObject, ClefFields.Level, out var l) && !Enum.TryParse(l, true, out level))
+            throw new InvalidDataException($"The `{ClefFields.Level}` value on line {lineNumber} is not a valid `{nameof(LogEventLevel)}`.");
 
         Exception? exception = null;
         if (TryGetOptionalField(lineNumber, jObject, ClefFields.Exception, out var ex))
@@ -225,12 +298,17 @@ public class LogEventReader : IDisposable
 
             return (DateTime)dt!;
         }
+        else
+        {
+            if (token.Type != JTokenType.String)
+                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
-        if (token.Type != JTokenType.String)
-            throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
+            var text = token.Value<string>()!;
+            if (!DateTimeOffset.TryParse(text, out var offset))
+                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported timestamp format.");
 
-        var text = token.Value<string>()!;
-        return DateTimeOffset.Parse(text);
+            return offset;
+        }
     }
 
     static JsonSerializer CreateSerializer()

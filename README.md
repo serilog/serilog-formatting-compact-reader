@@ -43,7 +43,7 @@ await using var console = new LoggerConfiguration()
 
 await using var clef = File.OpenText("log.clef"))
 
-var reader = new LogEventReader(clef);
+using var reader = new LogEventReader(clef);
 
 while (reader.TryRead(out var evt))
     console.Write(evt);

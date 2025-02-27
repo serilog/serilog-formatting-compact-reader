@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
 using Serilog.Events;
 
 namespace Serilog.Formatting.Compact.Reader;
@@ -22,7 +22,7 @@ static class PropertyFactory
     const string TypeTagPropertyName = "$type";
     const string InvalidPropertyNameSubstitute = "(unnamed)";
 
-    public static LogEventProperty CreateProperty(string name, JToken value, Rendering[]? renderings)
+    public static LogEventProperty CreateProperty(string name, in JsonElement value, Rendering[]? renderings)
     {
         // The format allows (does not disallow) empty/null property names, but Serilog cannot represent them.
         if (!LogEventProperty.IsValidName(name))
@@ -31,27 +31,65 @@ static class PropertyFactory
         return new LogEventProperty(name, CreatePropertyValue(value, renderings));
     }
 
-    static LogEventPropertyValue CreatePropertyValue(JToken value, Rendering[]? renderings)
+    static LogEventPropertyValue CreatePropertyValue(in JsonElement value, Rendering[]? renderings)
     {
-        if (value.Type == JTokenType.Null)
+        if (value.ValueKind == JsonValueKind.Null)
             return new ScalarValue(null);
 
-        if (value is JObject obj)
+        if (value.ValueKind == JsonValueKind.Object)
         {
-            obj.TryGetValue(TypeTagPropertyName, out var tt);
+            string? tts = null;
+            if (value.TryGetProperty(TypeTagPropertyName, out var tt))
+                tts = tt.GetString();
             return new StructureValue(
-                obj.Properties().Where(kvp => kvp.Name != TypeTagPropertyName).Select(kvp => CreateProperty(kvp.Name, kvp.Value, null)),
-                tt?.Value<string>());
+                value.EnumerateObject().Where(kvp => kvp.Name != TypeTagPropertyName).Select(kvp => CreateProperty(kvp.Name, kvp.Value, null)),
+                tts);
         }
 
-        if (value is JArray arr)
+        if (value.ValueKind == JsonValueKind.Array)
         {
-            return new SequenceValue(arr.Select(v => CreatePropertyValue(v, null)));
+            return new SequenceValue(value.EnumerateArray().Select(v => CreatePropertyValue(v, null)));
         }
 
-        var raw = value.Value<JValue>()!.Value;
+        object? raw = null;
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.String:
+                raw = value.GetString(); break;
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                raw = value.GetBoolean(); break;
+            case JsonValueKind.Number:
+                {
+                    if (value.TryGetInt64(out var x))
+                    {
+                        raw = x; break;
+                    }
+                }
+                {
+                    if (value.TryGetUInt64(out var x))
+                    {
+                        raw = x; break;
+                    }
+                }
+                {
+                    if (value.TryGetDouble(out var x))
+                    {
+                        raw = x; break;
+                    }
+                }
+                {
+                    if (value.TryGetDecimal(out var x))
+                    {
+                        raw = x; break;
+                    }
+                }
+                break;
+        }
+        if (raw == null)
+            raw = value.GetRawText();
 
-        return renderings != null && renderings.Length != 0 ? 
+        return renderings != null && renderings.Length != 0 ?
             new RenderableScalarValue(raw, renderings) :
             new ScalarValue(raw);
     }

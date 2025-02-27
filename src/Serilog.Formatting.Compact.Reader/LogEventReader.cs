@@ -15,8 +15,8 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+using System.IO;
+using System.Text.Json;
 using Serilog.Events;
 using Serilog.Parsing;
 
@@ -34,7 +34,6 @@ public class LogEventReader : IDisposable
     static readonly MessageTemplateParser Parser = new();
     static readonly Rendering[] NoRenderings = [];
     readonly TextReader _text;
-    readonly JsonSerializer _serializer;
 
     int _lineNumber;
 
@@ -42,11 +41,9 @@ public class LogEventReader : IDisposable
     /// Construct a <see cref="LogEventReader"/>.
     /// </summary>
     /// <param name="text">Text to read from.</param>
-    /// <param name="serializer">If specified, a JSON serializer used when converting event documents.</param>
-    public LogEventReader(TextReader text, JsonSerializer? serializer = null)
+    public LogEventReader(TextReader text)
     {
         _text = text ?? throw new ArgumentNullException(nameof(text));
-        _serializer = serializer ?? CreateSerializer();
     }
 
     /// <inheritdoc/>
@@ -127,63 +124,58 @@ public class LogEventReader : IDisposable
     /// Read a single log event from a JSON-encoded document.
     /// </summary>
     /// <param name="document">The event in compact-JSON.</param>
-    /// <param name="serializer">If specified, a JSON serializer used when converting event documents.</param>
     /// <returns>The log event.</returns>
     /// <exception cref="InvalidDataException">The data format is invalid.</exception>
-    public static LogEvent ReadFromString(string document, JsonSerializer? serializer = null)
+    public static LogEvent ReadFromString(string document)
     {
         if (document == null) throw new ArgumentNullException(nameof(document));
-
-        serializer ??= CreateSerializer();
-        object? result;
+        JsonDocument? data = null;
         try
         {
-            using var reader = new JsonTextReader(new StringReader(document));
-            result = serializer.Deserialize(reader);
+            data = JsonDocument.Parse(document);
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
             throw new InvalidDataException("The document could not be deserialized.", ex);
         }
-
-        if (result is not JObject jObject)
-            throw new InvalidDataException("The document is not a complete JSON object.");
-
-        return ReadFromJObject(jObject);
+        using (data)
+        {
+            if (data == null || data.RootElement.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException($"The document is not a complete JSON object.");
+            return ReadFromJObject(data.RootElement);
+        }
     }
-
     /// <summary>
     /// Read a single log event from an already-deserialized JSON object.
     /// </summary>
     /// <param name="jObject">The deserialized compact-JSON event.</param>
     /// <returns>The log event.</returns>
     /// <exception cref="InvalidDataException">The data format is invalid.</exception>
-    public static LogEvent ReadFromJObject(JObject jObject)
+    public static LogEvent ReadFromJObject(in JsonElement jObject)
     {
-        if (jObject == null) throw new ArgumentNullException(nameof(jObject));
+        if (jObject.ValueKind != JsonValueKind.Object) throw new ArgumentException(nameof(jObject));
         return ReadFromJObject(1, jObject);
     }
 
     LogEvent ParseLine(string line)
     {
-        object? data;
+        JsonDocument? data = null;
         try
         {
-            using var reader = new JsonTextReader(new StringReader(line));
-            data = _serializer.Deserialize(reader);
+            data = JsonDocument.Parse(line);
         }
-        catch (Exception ex)
+        catch (JsonException)
         {
-            throw new InvalidDataException($"The data on line {_lineNumber} could not be deserialized.", ex);
         }
-
-        if (data is not JObject fields)
-            throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
-
-        return ReadFromJObject(_lineNumber, fields);
+        using (data)
+        {
+            if (data == null || data.RootElement.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException($"The data on line {_lineNumber} is not a complete JSON object.");
+            return ReadFromJObject(_lineNumber, data.RootElement);
+        }
     }
 
-    static LogEvent ReadFromJObject(int lineNumber, JObject jObject)
+    static LogEvent ReadFromJObject(int lineNumber, in JsonElement jObject)
     {
         var timestamp = GetRequiredTimestampField(lineNumber, jObject, ClefFields.Timestamp);
 
@@ -206,31 +198,31 @@ public class LogEventReader : IDisposable
         ActivityTraceId traceId = default;
         if (TryGetOptionalField(lineNumber, jObject, ClefFields.TraceId, out var tr))
             traceId = ActivityTraceId.CreateFromString(tr.AsSpan());
-        
+
         ActivitySpanId spanId = default;
         if (TryGetOptionalField(lineNumber, jObject, ClefFields.SpanId, out var sp))
             spanId = ActivitySpanId.CreateFromString(sp.AsSpan());
-        
+
         var parsedTemplate = messageTemplate == null ?
             new MessageTemplate([]) :
             Parser.Parse(messageTemplate);
 
         var renderings = NoRenderings;
-
-        if (jObject.TryGetValue(ClefFields.Renderings, out var r))
+        
+        if (jObject.TryGetProperty(ClefFields.Renderings, out var r))
         {
-            if (r is not JArray renderedByIndex)
+            if (!(r.ValueKind == JsonValueKind.Array))
                 throw new InvalidDataException($"The `{ClefFields.Renderings}` value on line {lineNumber} is not an array as expected.");
 
             renderings = parsedTemplate.Tokens
                 .OfType<PropertyToken>()
                 .Where(t => t.Format != null)
-                .Zip(renderedByIndex, (t, rd) => new Rendering(t.PropertyName, t.Format!, rd.Value<string>()!))
+                .Zip(r.EnumerateArray(), (t, rd) => new Rendering(t.PropertyName, t.Format!, rd.GetString()!))
                 .ToArray();
         }
 
         var properties = jObject
-            .Properties()
+            .EnumerateObject()
             .Where(f => !ClefFields.All.Contains(f.Name))
             .Select(f =>
             {
@@ -248,75 +240,59 @@ public class LogEventReader : IDisposable
         return new LogEvent(timestamp, level, exception, parsedTemplate, properties, traceId, spanId);
     }
 
-    static bool TryGetOptionalField(int lineNumber, JObject data, string field, [NotNullWhen(true)] out string? value)
+    static bool TryGetOptionalField(int lineNumber, in JsonElement data, string field, [NotNullWhen(true)] out string? value)
     {
-        if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
+        if (!data.TryGetProperty(field, out var prop) || prop.ValueKind == JsonValueKind.Null)
         {
             value = null;
             return false;
         }
 
-        if (token.Type != JTokenType.String)
+        if (prop.ValueKind != JsonValueKind.String)
             throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
-        value = token.Value<string>()!;
+        value = prop.GetString()!;
         return true;
     }
 
-    static bool TryGetOptionalEventId(int lineNumber, JObject data, string field, out object? eventId)
+    static bool TryGetOptionalEventId(int lineNumber, in JsonElement data, string field, out object? eventId)
     {
-        if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
+        if (!data.TryGetProperty(field, out var prop) || prop.ValueKind == JsonValueKind.Null)
         {
             eventId = null;
             return false;
         }
 
-        switch (token.Type)
+        switch (prop.ValueKind)
         {
-            case JTokenType.String:
-                eventId = token.Value<string>();
+            case JsonValueKind.String:
+                eventId = prop.GetString();
                 return true;
-            case JTokenType.Integer:
-                eventId = token.Value<uint>();
-                return true;
-            default:
-                throw new InvalidDataException(
-                    $"The value of `{field}` on line {lineNumber} is not in a supported format.");
+            case JsonValueKind.Number:
+                if (prop.TryGetUInt32(out var v))
+                {
+                    eventId = v;
+                    return true;
+                }
+                break;
         }
+
+        throw new InvalidDataException(
+            $"The value of `{field}` on line {lineNumber} is not in a supported format.");
     }
 
-    static DateTimeOffset GetRequiredTimestampField(int lineNumber, JObject data, string field)
+    static DateTimeOffset GetRequiredTimestampField(int lineNumber, in JsonElement data, string field)
     {
-        if (!data.TryGetValue(field, out var token) || token.Type == JTokenType.Null)
+        if (!data.TryGetProperty(field, out var prop) || prop.ValueKind == JsonValueKind.Null)
             throw new InvalidDataException($"The data on line {lineNumber} does not include the required `{field}` field.");
 
-        if (token.Type == JTokenType.Date)
-        {
-            var dt = token.Value<JValue>()!.Value;
-            if (dt is DateTimeOffset offset)
-                return offset;
+        if (prop.ValueKind != JsonValueKind.String)
+            throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
 
-            return (DateTime)dt!;
-        }
-        else
-        {
-            if (token.Type != JTokenType.String)
-                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported format.");
+        var text = prop.GetString()!;
+        if (!DateTimeOffset.TryParse(text, out var offset))
+            throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported timestamp format.");
 
-            var text = token.Value<string>()!;
-            if (!DateTimeOffset.TryParse(text, out var offset))
-                throw new InvalidDataException($"The value of `{field}` on line {lineNumber} is not in a supported timestamp format.");
-
-            return offset;
-        }
-    }
-
-    static JsonSerializer CreateSerializer()
-    {
-        return JsonSerializer.Create(new JsonSerializerSettings
-        {
-            DateParseHandling = DateParseHandling.None,
-            Culture = CultureInfo.InvariantCulture
-        });
+        return offset;
     }
 }
